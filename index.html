@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Orientation mapping" />
+    <title>Orientation Capture and Logging</title>
+</head>
+
+<body><noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root">
+        <ul>
+            <li>
+                <button id='request'> Start Movement Capture and Logging</button>
+            </li>
+            <li>
+                <button id='stop' class='hide'> Stop Movement Logging</button>
+            </li>
+            <li>
+                <button id='export' class='hide'>Export Log</button> 
+            </li>
+            <li>
+                <a id='download' href='#' class='hide'>Download</a>
+            </li>
+            <li>
+                Orientation
+            </li>
+            <li>
+                <label class='x' id='x'>X:0</label>
+            </li>
+            <li>
+                <label class='y' id='y'>Y:0</label>
+            </li>
+            <li>
+                <label class='z' id='z'>Z:0</label>
+            </li>
+            <li>
+                Logging Interval in Seconds
+            </li>
+            <li>
+                <input id='interval' type='number' min="1" step="1" value="5" />
+            </li>
+        </ul>
+    </div>
+    
+    <style>
+        ul {
+          list-style-type: none;
+
+        }
+        a.hide {
+            display:none;
+        }
+        a.show{
+            display:block;
+        }
+
+        button.hide {
+            display:none;
+        }
+        button.show{
+            display:block;
+        }
+
+
+    </style>
+    <script>
+
+function getOrienation(elementID){
+    let element =  document.getElementById(elementID);
+    return element.innerText.substr(2);
+}
+function displayOrientation(angle, elementID){
+    var element =  document.getElementById(elementID);
+    if ( Math.abs(element.innerText.substr(2) - angle)>0.5)
+    {
+        element.innerText = elementID + ':' + angle;
+    }
+}
+var log = [];
+var intervals = [];
+var intervalDuration=1000;
+var loggingOn=false;
+var capturedevicelisteners=[];
+
+function updateIntervalDuration(){
+    intervalDuration = intervalInput.value *1000; 
+}
+
+function captureListener(event) {
+                console.log(event.alpha + ' : ' + event.beta + ' : ' + event.gamma);
+                displayOrientation(event.alpha,'x');
+                displayOrientation(event.beta,'y')
+                displayOrientation(event.gamma,'z')
+           }
+
+function startCapture(){
+    try {window.removeEventListener( "deviceorientation",captureListener);}
+    catch{}
+
+    window.addEventListener( "deviceorientation", captureListener);
+    logNow();
+}
+
+function startLog(){
+    //initialize Log
+    log = [];
+    //cancelexisting intervals
+    intervals.map(i=>{try{window.clearInterval(i);} catch {console.log('unable to cancel previous intervals')}});
+    intervals = [];
+    //setup interval 
+    intervalID = window.setInterval(logNow,intervalDuration);
+    //log interval to intervals
+    intervals.push(intervalID);
+    //show Export button
+    var exportbtn = document.getElementById("export");
+    exportbtn.className='show';
+    //indicate logging on
+    loggingOn=true;
+    btn.className='hide';
+    stopBtn.className='show';
+
+}
+function endLog(){
+   // switch off logging
+   logging = false;
+   // cancel intervals
+   intervals.map(i=>{try{window.clearInterval(i);} catch {console.log('unable to cancel previous intervals')}});
+   intervals = [];
+   stopBtn.className="hide";
+   btn.className="show";
+
+}
+function logNow(){
+
+    //indicate logging on
+    loggingOn=true;
+    // append to Log
+    let logitem =[]
+    logitem.push((new Date).toISOString());
+    logitem.push(getOrienation('x'));
+    logitem.push(getOrienation('y'));  
+    logitem.push(getOrienation('z'));   
+    log.push(logitem);
+}
+function exportLog(){
+
+    let csvContent = "data:text/csv;charset=utf-8," 
+    + log.map(e => e.join(",")).join("\n");
+
+
+    var encodedUri = encodeURI(csvContent);
+    var link = document.getElementById("download");
+    link.setAttribute("href", encodedUri);
+     var name = 'orientation_log' + (new Date).toISOString().replace(/[^a-zA-Z0-9 ]/g, "_") + '.csv';
+    
+    link.setAttribute("download", name);
+    link.click();
+
+};
+
+
+
+
+
+
+if ( location.protocol != "https:" &&  location.href.indexOf('127.0.0.1:8000')<1  ) {
+location.href = "https:" + window.location.href.substring( window.location.protocol.length );
+}
+function permission () {
+    if ( typeof( DeviceMotionEvent ) !== "undefined" && typeof( DeviceMotionEvent.requestPermission ) === "function" ) {
+        // (optional) Do something before API request prompt.
+        DeviceMotionEvent.requestPermission()
+            .then( response => {
+            // (optional) Do something after API prompt dismissed.
+            if ( response == "granted" ) {
+                startCapture();
+                startLog();
+            }
+        })
+            .catch( console.error )
+    } else {
+        startCapture();
+        startLog();
+    }
+}
+const btn = document.getElementById( "request" );
+btn.addEventListener( "click", permission );
+
+const stopBtn = document.getElementById( "stop" );
+stopBtn.addEventListener( "click", endLog );
+
+
+const exportBtn = document.getElementById( "export" );
+exportBtn.addEventListener( "click", exportLog );
+
+const intervalInput = document.getElementById( "interval" );
+intervalInput.addEventListener( "change", updateIntervalDuration );
+
+
+    </script>
+</body>
+
+</html>
